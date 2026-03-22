@@ -111,5 +111,16 @@ public class Main {
         } catch (NullPointerException e) {
             System.out.println("Null permission: OK");
         }
+
+        System.out.println("\n___Тесты для AssignmentMetadata___");
+
+        //тест с причиной
+        AssignmentMetadata meta1 = AssignmentMetadata.now("anastasia_fr", "Тестирование системы");
+        System.out.println("С причиной: " + meta1.format());
+
+        //тест без причины (null)
+        AssignmentMetadata meta2 = AssignmentMetadata.now("admin", null);
+        System.out.println("Без причины: " + meta2.format());
+
     }
 }
