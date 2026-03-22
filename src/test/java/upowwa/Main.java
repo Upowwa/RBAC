@@ -137,5 +137,21 @@ public class Main {
                 String.format("[PERMANENT] %s assigned to %s by %s at 2026-02-07 19:00 \nReason: Initial setup \nStatus: ACTIVE",
                         testRole.getName(), testUser.username(), testMeta.assignedBy()));
 
+        System.out.println("\n___Тесты для PermanentAssignment___");
+
+        User user = User.create("testuser", "Test User", "test@example.com");
+        Role role = new Role("TestRole", "Тестовая роль");
+        AssignmentMetadata meta = AssignmentMetadata.now("admin", "Initial setup");
+
+        PermanentAssignment perm = new PermanentAssignment(user, role, meta);
+
+        System.out.println("До отзыва: " + perm.summary());
+        System.out.println("isActive(): " + perm.isActive());
+        System.out.println("assignmentType(): " + perm.assignmentType());
+
+        perm.revoke();
+        System.out.println("После отзыва: isActive(): " + perm.isActive());
+        System.out.println("isRevoked(): " + perm.isRevoked());
+
     }
 }
