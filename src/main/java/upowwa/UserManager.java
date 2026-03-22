@@ -91,6 +91,13 @@ public class UserManager implements Repository<User> {
         }
     }
 
+    public User findByName(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return null;
+        }
+        return findByUsername(username).orElse(null);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
