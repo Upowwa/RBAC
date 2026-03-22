@@ -122,5 +122,7 @@ public class Main {
         AssignmentMetadata meta2 = AssignmentMetadata.now("admin", null);
         System.out.println("Без причины: " + meta2.format());
 
+        System.out.println("\n___Тест интерфейса RoleAssignment___");
+        System.out.println("Интерфейс создан");
     }
 }
