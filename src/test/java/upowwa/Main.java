@@ -81,5 +81,35 @@ public class Main {
         } catch (IllegalArgumentException e) {
             System.out.println("Пустой description: " + e.getMessage());
         }
+
+        System.out.println("\n___Тесты для Role___");
+
+        //создание права
+        Permission readUsers = new Permission("READ", "users", "Чтение пользователей");
+        Permission writeUsers = new Permission("WRITE", "users", "Запись пользователей");
+        Permission deleteReports = new Permission("DELETE", "reports", "Удаление отчетов");
+
+        //создание роли
+        Role adminRole = new Role("Administrator", "Полный доступ к системе");
+        adminRole.addPermission(readUsers);
+        adminRole.addPermission(writeUsers);
+        adminRole.addPermission(deleteReports);
+
+        System.out.println("Создание роли: " + adminRole);
+        System.out.println("\n" + adminRole.format());
+
+        System.out.println("Есть READ users: " + adminRole.hasPermission(readUsers));
+        System.out.println("Есть READ на users: " + adminRole.hasPermission("READ", "users"));
+        System.out.println("Есть UNKNOWN: " + adminRole.hasPermission("UNKNOWN", "users"));
+
+        //удаление
+        adminRole.removePermission(writeUsers);
+        System.out.println("\nПосле удаления WRITE: " + adminRole.getPermissions().size() + " прав");
+
+        try {
+            adminRole.addPermission(null);
+        } catch (NullPointerException e) {
+            System.out.println("Null permission: OK");
+        }
     }
 }
