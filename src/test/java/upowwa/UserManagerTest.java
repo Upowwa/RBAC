@@ -60,7 +60,7 @@ class UserManagerTest {
 
         List<User> gmailUsers = userManager.findByFilter(UserFilters.byEmailDomain("gmail.com"));
         assertEquals(1, gmailUsers.size());
-        assertEquals("alice", gmailUsers.getFirst().username());
+        assertEquals("alice", gmailUsers.get(0).username());
     }
 
     @Test

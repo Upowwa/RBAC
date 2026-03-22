@@ -44,6 +44,6 @@ class RoleManagerTest {
 
         List<Role> roles = roleManager.findRolesWithPermission("READ", "users");
         assertEquals(1, roles.size());
-        assertEquals("Admin", roles.getFirst().getName());
+        assertEquals("Admin", roles.get(0).getName());
     }
 }
