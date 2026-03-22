@@ -153,5 +153,16 @@ public class Main {
         System.out.println("После отзыва: isActive(): " + perm.isActive());
         System.out.println("isRevoked(): " + perm.isRevoked());
 
+        System.out.println("\n___Тесты для TemporaryAssignment___");
+
+        TemporaryAssignment temp = new TemporaryAssignment(testUser, testRole, testMeta, "2026-12-31", false);
+        System.out.println("Temporary - активное:");
+        System.out.println("  summary(): " + temp.summary());
+        System.out.println("  isActive(): " + temp.isActive());
+        System.out.println("  isExpired(): " + temp.isExpired());
+
+        temp.extend("2026-03-25");
+        System.out.println("Temporary - после продления: " + temp.summary());
+        System.out.println("  getTimeRemaining(): " + temp.getTimeRemaining());
     }
 }
