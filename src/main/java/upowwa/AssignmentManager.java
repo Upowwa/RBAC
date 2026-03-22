@@ -148,6 +148,14 @@ public class AssignmentManager implements Repository<RoleAssignment> {
         }
     }
 
+    public List<String> getRoleUsers(String roleName) {
+        return assignments.values().stream()
+                .filter(a -> a.role().getName().equals(roleName) && a.isActive())
+                .map(a -> a.user().username())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
