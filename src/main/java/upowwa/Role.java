@@ -63,4 +63,8 @@ public class Role {
         }
         return sb.toString();
     }
+
+    public String getName() {
+        return name;
+    }
 }

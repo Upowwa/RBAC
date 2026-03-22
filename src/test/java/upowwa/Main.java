@@ -122,7 +122,20 @@ public class Main {
         AssignmentMetadata meta2 = AssignmentMetadata.now("admin", null);
         System.out.println("Без причины: " + meta2.format());
 
-        System.out.println("\n___Тест интерфейса RoleAssignment___");
+        System.out.println("\n___Тест для RoleAssignment___");
         System.out.println("Интерфейс создан");
+
+        System.out.println("\n___Тесты для AbstractRoleAssignment___");
+
+        //создание объектов
+        User testUser = User.create("testuser", "Test User", "test@example.com");
+        Role testRole = new Role("TestRole", "Тестовая роль");
+        AssignmentMetadata testMeta = AssignmentMetadata.now("admin", "Тестовое назначение");
+
+        System.out.println("assignmentId: assign_1, assign_2...");
+        System.out.println("Пример: " +
+                String.format("[PERMANENT] %s assigned to %s by %s at 2026-02-07 19:00 \nReason: Initial setup \nStatus: ACTIVE",
+                        testRole.getName(), testUser.username(), testMeta.assignedBy()));
+
     }
 }
