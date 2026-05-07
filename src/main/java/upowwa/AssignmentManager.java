@@ -26,6 +26,9 @@ public class AssignmentManager implements Repository<RoleAssignment> {
 
     @Override
     public boolean remove(RoleAssignment assignment) {
+        if (assignment == null) {
+            throw new IllegalArgumentException("Assignment не может быть null");
+        }
         return assignments.remove(assignment.assignmentId()) != null;
     }
 
@@ -50,24 +53,29 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     }
 
     public List<RoleAssignment> findByUser(User user) {
+        Objects.requireNonNull(user, "User не может быть null");
         return assignments.values().stream()
-                .filter(a -> a.user() == user)
+                .filter(a -> a.user().equals(user))
                 .collect(Collectors.toList());
     }
 
     public List<RoleAssignment> findByRole(Role role) {
         return assignments.values().stream()
-                .filter(a -> a.role() == role)
+                .filter(a -> a.role().equals(role))
                 .collect(Collectors.toList());
     }
 
     public List<RoleAssignment> findByFilter(AssignmentFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
         return assignments.values().stream()
                 .filter(filter::test)
                 .collect(Collectors.toList());
     }
 
     public List<RoleAssignment> findAll(AssignmentFilter filter, Comparator<RoleAssignment> sorter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        Objects.requireNonNull(sorter, "Sorter не может быть null");
+
         return assignments.values().stream()
                 .filter(filter::test)
                 .sorted(sorter)
@@ -84,19 +92,19 @@ public class AssignmentManager implements Repository<RoleAssignment> {
 
     public boolean userHasRole(User user, Role role) {
         return assignments.values().stream()
-                .anyMatch(a -> a.user() == user && a.role() == role && a.isActive());
+                .anyMatch(a -> a.user().equals(user) && a.role().equals(role) && a.isActive());
     }
 
     public boolean userHasPermission(User user, String permissionName, String resource) {
         return assignments.values().stream()
-                .filter(a -> a.user() == user && a.isActive())
+                .filter(a -> a.user().equals(user) && a.isActive())
                 .flatMap(a -> a.role().getPermissions().stream())
                 .anyMatch(p -> p.matches(permissionName, resource));
     }
 
     public Set<Permission> getUserPermissions(User user) {
         return assignments.values().stream()
-                .filter(a -> a.user() == user && a.isActive())
+                .filter(a -> a.user().equals(user) && a.isActive())
                 .flatMap(a -> a.role().getPermissions().stream())
                 .collect(Collectors.toSet());
     }
@@ -137,15 +145,19 @@ public class AssignmentManager implements Repository<RoleAssignment> {
             throw new IllegalArgumentException("Роль '" + assignment.role().getName() + "' не существует");
         }
 
-        //проверка дублирования активных назначений той же роли
         if (assignments.values().stream()
                 .anyMatch(a -> a != assignment &&
-                        a.user() == assignment.user() &&
-                        a.role() == assignment.role() &&
+                        a.user().equals(assignment.user()) &&
+                        a.role().equals(assignment.role()) &&
                         a.isActive())) {
             throw new IllegalArgumentException("У пользователя уже есть активное назначение роли '" +
                     assignment.role().getName() + "'");
         }
+    }
+
+    public boolean hasRoleInUse(String roleName) {
+        return assignments.values().stream()
+                .anyMatch(assignment -> assignment.role().getName().equals(roleName) && assignment.isActive());
     }
 
     @Override
