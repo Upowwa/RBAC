@@ -49,8 +49,13 @@ public abstract class AbstractRoleAssignment implements RoleAssignment {
     }
 
     public String summary() {
-        return String.format("[PERMANENT] %s assigned to %s by %s at 2026-02-07 19:00 Reason: Initial setup Status: ACTIVE",
-                role.getName(), user.username(), metadata.assignedBy());
+        String type = assignmentType();
+        String status = isActive() ? "ACTIVE" : "INACTIVE";
+        String reason = metadata.reason().isEmpty() ? "не указана" : metadata.reason();
+
+        return String.format("[%s] %s assigned to %s by %s at %s Reason: %s Status: %s",
+                type, role.getName(), user.username(), metadata.assignedBy(),
+                metadata.assignedAt(), reason, status);
     }
 
     @Override
