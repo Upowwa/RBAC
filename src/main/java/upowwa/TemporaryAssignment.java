@@ -1,24 +1,35 @@
 package upowwa;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 public class TemporaryAssignment extends AbstractRoleAssignment {
     private String expiresAt;
-    private boolean autoRenew;
+    private final boolean autoRenew;
 
     public TemporaryAssignment(User user, Role role, AssignmentMetadata metadata,
                                String expiresAt, boolean autoRenew) {
         super(user, role, metadata);
 
-        if (expiresAt == null) {
-            throw new NullPointerException("expiresAt не может быть null");
+        if (expiresAt == null || expiresAt.trim().isEmpty()) {
+            throw new IllegalArgumentException("expiresAt не может быть null или пустым");
         }
-        this.expiresAt = expiresAt;
+
+        this.expiresAt = expiresAt.trim();
         this.autoRenew = autoRenew;
     }
 
     @Override
     public boolean isActive() {
-        String now = "2026-03-22";
-        return expiresAt.compareTo(now) > 0;
+        String today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        return expiresAt.compareTo(today) >= 0;
+    }
+
+    public boolean isActive(String currentDate) {
+        if (currentDate == null || currentDate.trim().isEmpty()) {
+            throw new IllegalArgumentException("currentDate не может быть null или пустым");
+        }
+        return expiresAt.compareTo(currentDate.trim()) >= 0;
     }
 
     @Override
@@ -27,28 +38,47 @@ public class TemporaryAssignment extends AbstractRoleAssignment {
     }
 
     public void extend(String newExpirationDate) {
-        if (newExpirationDate == null) {
-            throw new NullPointerException("newExpirationDate не может быть null");
+        if (newExpirationDate == null || newExpirationDate.trim().isEmpty()) {
+            throw new IllegalArgumentException("newExpirationDate не может быть null или пустым");
         }
-        this.expiresAt = newExpirationDate;
+        this.expiresAt = newExpirationDate.trim();
     }
 
     public boolean isExpired() {
         return !isActive();
     }
 
+    public boolean isExpired(String currentDate) {
+        return !isActive(currentDate);
+    }
+
+    public String getExpiresAt() {
+        return expiresAt;
+    }
+
+    public boolean isAutoRenew() {
+        return autoRenew;
+    }
+
     public String getTimeRemaining() {
-        return "X days left";
+        return "До " + expiresAt;
     }
 
     @Override
     public String summary() {
-        return String.format("[TEMPORARY] %s assigned to %s by %s at 2026-02-07 19:00 " +
-                        "expires %s | Reason: Initial setup | Status: %s",
+        String reason = metadata().reason().isEmpty() ? "не указана" : metadata().reason();
+        String status = isActive() ? "ACTIVE" : "EXPIRED";
+
+        return String.format(
+                "[%s] %s assigned to %s by %s at %s Expires: %s Reason: %s Status: %s",
+                assignmentType(),
                 role().getName(),
                 user().username(),
                 metadata().assignedBy(),
+                metadata().assignedAt(),
                 expiresAt,
-                isActive() ? "ACTIVE" : "EXPIRED");
+                reason,
+                status
+        );
     }
 }

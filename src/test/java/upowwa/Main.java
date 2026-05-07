@@ -1,7 +1,7 @@
 package upowwa;
 
 public class Main {
-    static void main() {
+    public static void main(String[] args) {
         System.out.println("___Тесты для User___");
 
         try {
@@ -41,7 +41,27 @@ public class Main {
             System.out.println("Пустой username: " + e.getMessage());
         }
 
+        try {
+            User.create(null, "Anastasia Fr", "Anastasia@gmail.com");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Null username: " + e.getMessage());
+        }
+
+        try {
+            User.create("anastasia_fr", "Anastasia Fr", "user.@gmail.com");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Точка до @: " + e.getMessage());
+        }
+
+        System.out.println("___Тесты завершены___\n");
+
         System.out.println("\n___Тесты для Permission___");
+
+        try {
+            new Permission("READ WRITE", "users", "test");
+        } catch (IllegalArgumentException e) {
+            System.out.println("Пробел в name: " + e.getMessage());
+        }
 
         try {
             Permission perm1 = new Permission("read", "Users", "Чтение пользователей");
@@ -82,14 +102,14 @@ public class Main {
             System.out.println("Пустой description: " + e.getMessage());
         }
 
+        System.out.println("___Тесты завершены___\n");
+
         System.out.println("\n___Тесты для Role___");
 
-        //создание права
         Permission readUsers = new Permission("READ", "users", "Чтение пользователей");
         Permission writeUsers = new Permission("WRITE", "users", "Запись пользователей");
         Permission deleteReports = new Permission("DELETE", "reports", "Удаление отчетов");
 
-        //создание роли
         Role adminRole = new Role("Administrator", "Полный доступ к системе");
         adminRole.addPermission(readUsers);
         adminRole.addPermission(writeUsers);
@@ -102,7 +122,6 @@ public class Main {
         System.out.println("Есть READ на users: " + adminRole.hasPermission("READ", "users"));
         System.out.println("Есть UNKNOWN: " + adminRole.hasPermission("UNKNOWN", "users"));
 
-        //удаление
         adminRole.removePermission(writeUsers);
         System.out.println("\nПосле удаления WRITE: " + adminRole.getPermissions().size() + " прав");
 
@@ -112,30 +131,18 @@ public class Main {
             System.out.println("Null permission: OK");
         }
 
-        System.out.println("\n___Тесты для AssignmentMetadata___");
+        System.out.println("ID роли: " + adminRole.getId());
 
-        //тест с причиной
-        AssignmentMetadata meta1 = AssignmentMetadata.now("anastasia_fr", "Тестирование системы");
-        System.out.println("С причиной: " + meta1.format());
+        try {
+            adminRole.getPermissions().add(readUsers);
+        } catch (UnsupportedOperationException e) {
+            System.out.println("Коллекция permissions снаружи неизменяема: OK");
+        }
 
-        //тест без причины (null)
-        AssignmentMetadata meta2 = AssignmentMetadata.now("admin", null);
-        System.out.println("Без причины: " + meta2.format());
+        Role managerRole = new Role("Manager", "Ограниченный доступ");
+        System.out.println("Уникальные ID: " + !adminRole.getId().equals(managerRole.getId()));
 
-        System.out.println("\n___Тест для RoleAssignment___");
-        System.out.println("Интерфейс создан");
-
-        System.out.println("\n___Тесты для AbstractRoleAssignment___");
-
-        //создание объектов
-        User testUser = User.create("testuser", "Test User", "test@example.com");
-        Role testRole = new Role("TestRole", "Тестовая роль");
-        AssignmentMetadata testMeta = AssignmentMetadata.now("admin", "Тестовое назначение");
-
-        System.out.println("assignmentId: assign_1, assign_2...");
-        System.out.println("Пример: " +
-                String.format("[PERMANENT] %s assigned to %s by %s at 2026-02-07 19:00 \nReason: Initial setup \nStatus: ACTIVE",
-                        testRole.getName(), testUser.username(), testMeta.assignedBy()));
+        System.out.println("___Тесты завершены___\n");
 
         System.out.println("\n___Тесты для PermanentAssignment___");
 
@@ -153,16 +160,28 @@ public class Main {
         System.out.println("После отзыва: isActive(): " + perm.isActive());
         System.out.println("isRevoked(): " + perm.isRevoked());
 
+        System.out.println("assignmentId: " + perm.assignmentId());
+
+        perm.revoke();
+        System.out.println("После повторного revoke: " + perm.isActive());
+
+        System.out.println("___Тесты завершены___\n");
+
         System.out.println("\n___Тесты для TemporaryAssignment___");
 
-        TemporaryAssignment temp = new TemporaryAssignment(testUser, testRole, testMeta, "2026-12-31", false);
+        TemporaryAssignment temp = new TemporaryAssignment(user, role, meta, "2026-12-31", false);
+
         System.out.println("Temporary - активное:");
         System.out.println("  summary(): " + temp.summary());
-        System.out.println("  isActive(): " + temp.isActive());
-        System.out.println("  isExpired(): " + temp.isExpired());
+        System.out.println("  isActive(2026-05-01): " + temp.isActive("2026-05-01"));
+        System.out.println("  isExpired(2027-01-01): " + temp.isExpired("2027-01-01"));
 
-        temp.extend("2026-03-25");
-        System.out.println("Temporary - после продления: " + temp.summary());
+        temp.extend("2027-03-25");
+        System.out.println("Temporary - после продления:");
+        System.out.println("  expiresAt: " + temp.getExpiresAt());
+        System.out.println("  isActive(2027-03-01): " + temp.isActive("2027-03-01"));
         System.out.println("  getTimeRemaining(): " + temp.getTimeRemaining());
+
+        System.out.println("___Тесты завершены___\n");
     }
 }

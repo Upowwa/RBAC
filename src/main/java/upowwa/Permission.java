@@ -13,14 +13,17 @@ public record Permission(String name, String resource, String description) {
             throw new IllegalArgumentException("Description не может быть пустым");
         }
 
-        //нормализация
-        String normalizedName = name.trim().replaceAll("\\s+", "_").toUpperCase();
-        String normalizedResource = resource.trim().toLowerCase();
-        String normalizedDescription = description.trim();
+        name = name.trim();
+        resource = resource.trim();
+        description = description.trim();
 
-        this.name = normalizedName;
-        this.resource = normalizedResource;
-        this.description = normalizedDescription;
+        if (name.contains(" ")) {
+            throw new IllegalArgumentException("Name не должно содержать пробелов");
+        }
+
+        this.name = name.toUpperCase();
+        this.resource = resource.toLowerCase();
+        this.description = description;
     }
 
     public String format() {
@@ -28,6 +31,10 @@ public record Permission(String name, String resource, String description) {
     }
 
     public boolean matches(String namePattern, String resourcePattern) {
-        return name.contains(namePattern) && resource.contains(resourcePattern);
+        if (namePattern == null || resourcePattern == null) {
+            return false;
+        }
+        return name.contains(namePattern.trim().toUpperCase())
+                && resource.contains(resourcePattern.trim().toLowerCase());
     }
 }
