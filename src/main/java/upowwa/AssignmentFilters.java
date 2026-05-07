@@ -1,9 +1,11 @@
 package upowwa;
 
+import java.util.Objects;
+
 public class AssignmentFilters {
 
     public static AssignmentFilter byUser(User user) {
-        return assignment -> assignment.user() == user;
+        return assignment -> assignment.user().equals(user);
     }
 
     public static AssignmentFilter byUsername(String username) {
@@ -11,7 +13,7 @@ public class AssignmentFilters {
     }
 
     public static AssignmentFilter byRole(Role role) {
-        return assignment -> assignment.role() == role;
+        return assignment -> assignment.role().equals(role);
     }
 
     public static AssignmentFilter byRoleName(String roleName) {
@@ -40,12 +42,8 @@ public class AssignmentFilters {
 
     public static AssignmentFilter expiringBefore(String date) {
         return assignment -> {
-            try {
-                if ("TEMPORARY".equals(assignment.assignmentType())) {
-                    return assignment.metadata().assignedAt().compareTo(date) < 0;
-                }
-            } catch (Exception e) {
-                return false;
+            if (assignment instanceof TemporaryAssignment temp) {
+                return temp.getExpiresAt().compareTo(date) < 0;
             }
             return false;
         };
