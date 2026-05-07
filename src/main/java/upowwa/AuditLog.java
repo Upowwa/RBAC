@@ -98,8 +98,8 @@ public class AuditLog {
                     int closeBracket = line.indexOf("]");
                     String timestamp = line.substring(1, closeBracket);
                     String rest = line.substring(closeBracket + 2).trim();
-                    String[] parts = rest.split(" \\| ", 5);
-                    if (parts.length == 5) {
+                    String[] parts = rest.split(" \\| ", 4);
+                    if (parts.length == 4) {
                         entries.add(new AuditEntry(timestamp, parts[0], parts[1], parts[2], parts[3]));
                     }
                 }

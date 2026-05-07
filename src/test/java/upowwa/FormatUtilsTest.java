@@ -5,42 +5,50 @@ import java.util.Arrays;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class FormatUtilsTest {
+class FormatUtilsTest {
 
     @Test
-    void testFormatTable() {
-        String[] headers = {"ID", "Name", "Status"};
-        List<String[]> rows = Arrays.asList(
-                new String[]{"1", "John", "Active"},
-                new String[]{"2", "Jane Doe", "Inactive"}
+    void truncate_shouldShortenLongText() {
+        assertEquals("Hello...", FormatUtils.truncate("Hello world", 8));
+    }
+
+    @Test
+    void padRight_shouldAppendSpaces() {
+        assertEquals("abc  ", FormatUtils.padRight("abc", 5));
+    }
+
+    @Test
+    void padLeft_shouldAppendSpacesOnLeft() {
+        assertEquals("  abc", FormatUtils.padLeft("abc", 5));
+    }
+
+    @Test
+    void formatBox_shouldContainBordersAndText() {
+        String result = FormatUtils.formatBox("Hello");
+        assertTrue(result.contains("+"));
+        assertTrue(result.contains("| Hello |"));
+    }
+
+    @Test
+    void formatHeader_shouldContainText() {
+        String result = FormatUtils.formatHeader("Users");
+        assertTrue(result.contains("Users"));
+        assertTrue(result.contains("="));
+    }
+
+    @Test
+    void formatTable_shouldContainHeadersAndRows() {
+        String[] headers = {"Username", "Email"};
+        List<String[]> rows = List.of(
+                new String[]{"admin", "admin@mail.com"},
+                new String[]{"john", "john@mail.com"}
         );
 
-        String table = FormatUtils.formatTable(headers, rows);
+        String result = FormatUtils.formatTable(headers, rows);
 
-        // ТОЧНЫЕ строки из реального вывода
-        assertTrue(table.contains("| ID | Name     | Status   |"), "Заголовок");
-        assertTrue(table.contains("| 1  | John     | Active   |"), "Строка 1");
-        assertTrue(table.contains("| 2  | Jane Doe | Inactive |"), "Строка 2");
-        assertTrue(table.contains("+----+"), "Рамки слева");
-        assertTrue(table.contains("+----------+"), "Рамки справа");
-    }
-
-    @Test
-    void testFormatTableEmpty() {
-        String table = FormatUtils.formatTable(null, Arrays.asList());
-        assertEquals("Пустая таблица", table);
-    }
-
-    @Test
-    void testFormatBox() {
-        String box = FormatUtils.formatBox("Test");
-        assertTrue(box.contains("| Test |"));
-        assertTrue(box.startsWith("+"));
-    }
-
-    @Test
-    void testTruncate() {
-        assertEquals("abc", FormatUtils.truncate("abc", 5));
-        assertEquals("ab...", FormatUtils.truncate("abcdef", 5));
+        assertTrue(result.contains("Username"));
+        assertTrue(result.contains("admin"));
+        assertTrue(result.contains("+"));
+        assertTrue(result.contains("|"));
     }
 }

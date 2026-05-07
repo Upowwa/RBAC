@@ -45,28 +45,8 @@ public class DateUtils {
     }
 
     public static String addDays(String date, int days) {
-        if (date == null || date.trim().isEmpty()) {
-            throw new IllegalArgumentException("Дата не может быть пустой");
-        }
-        String trimmed = date.trim();
-
-        try {
-            if (trimmed.length() == 10) {
-                LocalDate localDate = LocalDate.parse(trimmed, DATE_FORMATTER);
-                return localDate.plusDays(days).format(DATE_FORMATTER);
-            } else if (trimmed.length() == 19) {
-                LocalDateTime localDateTime = LocalDateTime.parse(trimmed, DATETIME_FORMATTER);
-                return localDateTime.plusDays(days).format(DATETIME_FORMATTER);
-            } else if (trimmed.length() == 16) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-                LocalDateTime localDateTime = LocalDateTime.parse(trimmed, fmt);
-                return localDateTime.plusDays(days).format(fmt);
-            } else {
-                throw new IllegalArgumentException("Неподдерживаемый формат даты: " + date);
-            }
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Ошибка обработки даты: " + date, e);
-        }
+        LocalDate localDate = LocalDate.parse(date, DATE_FORMATTER);
+        return localDate.plusDays(days).format(DATE_FORMATTER);
     }
 
     public static String formatRelativeTime(String date) {

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.regex.Pattern;
+import java.util.Locale;
 
 public class ValidationUtils {
     private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{3,20}$");
@@ -12,11 +13,9 @@ public class ValidationUtils {
             "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     );
 
-    private static final DateTimeFormatter[] DATE_FORMATTERS = {
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd")
-    };
+    private ValidationUtils() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     public static boolean isValidUsername(String username) {
         if (username == null || username.trim().isEmpty()) {
@@ -36,15 +35,24 @@ public class ValidationUtils {
         if (date == null || date.trim().isEmpty()) {
             return false;
         }
+
         String trimmed = date.trim();
-        for (DateTimeFormatter formatter : DATE_FORMATTERS) {
-            try {
-                LocalDateTime.parse(trimmed, formatter);
-                return true;
-            } catch (DateTimeParseException ignored) {
-                // пробуем следующий формат
-            }
-        }
+
+        try {
+            LocalDateTime.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return true;
+        } catch (DateTimeParseException ignored) { }
+
+        try {
+            LocalDateTime.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            return true;
+        } catch (DateTimeParseException ignored) { }
+
+        try {
+            java.time.LocalDate.parse(trimmed, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            return true;
+        } catch (DateTimeParseException ignored) { }
+
         return false;
     }
 
@@ -57,12 +65,12 @@ public class ValidationUtils {
 
     public static String normalizeStringLower(String input) {
         String normalized = normalizeString(input);
-        return normalized != null ? normalized.toLowerCase() : null;
+        return normalized != null ? normalized.toLowerCase(Locale.ROOT) : null;
     }
 
     public static String normalizeStringUpper(String input) {
         String normalized = normalizeString(input);
-        return normalized != null ? normalized.toUpperCase() : null;
+        return normalized != null ? normalized.toUpperCase(Locale.ROOT) : null;
     }
 
     public static void requireNonEmpty(String value, String fieldName) {

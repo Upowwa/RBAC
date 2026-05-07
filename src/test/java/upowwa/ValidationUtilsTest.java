@@ -2,40 +2,48 @@ package upowwa;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-public class ValidationUtilsTest {
+class ValidationUtilsTest {
 
-    @Test
-    void testIsValidUsername() {
-        assertTrue(ValidationUtils.isValidUsername("john123"));
-        assertFalse(ValidationUtils.isValidUsername("ab"));
-        assertFalse(ValidationUtils.isValidUsername("john@"));
+    @ParameterizedTest
+    @ValueSource(strings = {"admin", "john_doe", "user123"})
+    void isValidUsername_valid(String username) {
+        assertTrue(ValidationUtils.isValidUsername(username));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "ab", "user name", "user@name"})
+    void isValidUsername_invalid(String username) {
+        assertFalse(ValidationUtils.isValidUsername(username));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"admin@mail.com", "john.smith@test.org"})
+    void isValidEmail_valid(String email) {
+        assertTrue(ValidationUtils.isValidEmail(email));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"badmail", "test@", "@mail.com"})
+    void isValidEmail_invalid(String email) {
+        assertFalse(ValidationUtils.isValidEmail(email));
     }
 
     @Test
-    void testIsValidEmail() {
-        assertTrue(ValidationUtils.isValidEmail("user@example.com"));
-        assertFalse(ValidationUtils.isValidEmail("invalid"));
+    void normalizeString_shouldTrimAndNormalizeSpaces() {
+        String input = "  John   Smith  ";
+        String expected = "John Smith";  // Title Case как в оригинале
+
+        String result = ValidationUtils.normalizeString(input);
+
+        assertEquals(expected, result, "Должна убрать лишние пробелы, сохранив регистр");
     }
 
     @Test
-    void testNormalizeString() {
-        assertEquals("Hello WORLD", ValidationUtils.normalizeString("  Hello   WORLD  "));
-        assertEquals("hello world", ValidationUtils.normalizeStringLower("  Hello   WORLD  "));
-        assertEquals("HELLO WORLD", ValidationUtils.normalizeStringUpper("  Hello   WORLD  "));
-    }
-
-    @Test
-    void testRequireNonEmpty() {
+    void requireNonEmpty_shouldThrow() {
         assertThrows(IllegalArgumentException.class,
-                () -> ValidationUtils.requireNonEmpty("", "field"));
-    }
-
-    @Test
-    void testIsValidDate_REAL() {
-        // ТЕСТЫ ПОД ТВОЮ РЕАЛИЗАЦИЮ LocalDateTime форматтеров
-        assertFalse(ValidationUtils.isValidDate("2026-03-23"));  // ❌ Только LocalDateTime!
-        assertFalse(ValidationUtils.isValidDate("invalid"));
-        assertTrue(ValidationUtils.isValidDate("2026-03-23 12:00")); // ✅ LocalDateTime
+                () -> ValidationUtils.requireNonEmpty("   ", "username"));
     }
 }

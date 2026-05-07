@@ -1,8 +1,7 @@
 package upowwa;
-//нужно доделать
+
 import java.util.List;
 import java.util.Scanner;
-import java.util.stream.IntStream;
 
 public class ConsoleUtils {
 
@@ -10,18 +9,21 @@ public class ConsoleUtils {
         while (true) {
             System.out.print(message + ": ");
             String input = scanner.nextLine().trim();
+
             if (!required || !input.isEmpty()) {
                 return input;
             }
+
             System.out.println("✗ Поле обязательно для заполнения!");
         }
     }
 
     public static int promptInt(Scanner scanner, String message, int min, int max) {
         while (true) {
+            System.out.print(message + " [" + min + "-" + max + "]: ");
+            String input = scanner.nextLine().trim();
+
             try {
-                System.out.print(message + " [" + min + "-" + max + "]: ");
-                String input = scanner.nextLine().trim();
                 int value = Integer.parseInt(input);
                 if (value >= min && value <= max) {
                     return value;
@@ -35,31 +37,36 @@ public class ConsoleUtils {
 
     public static boolean promptYesNo(Scanner scanner, String message) {
         while (true) {
-            System.out.print(message + " (y/n): ");
+            System.out.print(message + " (y/n, да/нет): ");
             String input = scanner.nextLine().trim().toLowerCase();
+
             if (input.equals("y") || input.equals("yes") || input.equals("да")) {
                 return true;
-            } else if (input.equals("n") || input.equals("no") || input.equals("нет")) {
+            }
+            if (input.equals("n") || input.equals("no") || input.equals("нет")) {
                 return false;
             }
+
             System.out.println("✗ Введите y/n или да/нет");
         }
     }
 
-    public static int promptChoice(Scanner scanner, String message, List<String> options) {
+    public static <T> T promptChoice(Scanner scanner, String message, List<T> options) {
+        if (options == null || options.isEmpty()) {
+            throw new IllegalArgumentException("Список вариантов не может быть пустым");
+        }
+
         while (true) {
             System.out.println("\n" + "═".repeat(50));
             System.out.println(message);
-            IntStream.range(0, options.size()).forEach(i ->
-                    System.out.printf("  %d. %s\n", i + 1, options.get(i)));
-            System.out.println("═".repeat(50));
 
-            try {
-                int choice = ConsoleUtils.promptInt(scanner, "Выберите номер", 1, options.size());
-                return choice - 1; // вернуть индекс (0-based)
-            } catch (Exception e) {
-                System.out.println("✗ Неверный выбор!");
+            for (int i = 0; i < options.size(); i++) {
+                System.out.printf("  %d. %s%n", i + 1, options.get(i));
             }
+
+            System.out.println("\n" + "═".repeat(50));
+            int choice = promptInt(scanner, "Выберите номер", 1, options.size());
+            return options.get(choice - 1);
         }
     }
 }

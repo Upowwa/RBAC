@@ -4,6 +4,7 @@ public class RBACSystem {
     private final UserManager userManager;
     private final RoleManager roleManager;
     private final AssignmentManager assignmentManager;
+    private final AuditLog auditLog;
     private String currentUser;
 
     public RBACSystem() {
@@ -12,12 +13,16 @@ public class RBACSystem {
         this.assignmentManager = new AssignmentManager(userManager, roleManager);
         this.roleManager.setAssignmentManager(this.assignmentManager);
         this.currentUser = "system";
+        this.auditLog = new AuditLog();
     }
 
     //геттеры
     public UserManager getUserManager() { return userManager; }
     public RoleManager getRoleManager() { return roleManager; }
     public AssignmentManager getAssignmentManager() { return assignmentManager; }
+    public AuditLog getAuditLog() {
+        return auditLog;
+    }
 
     public void setCurrentUser(String username) {
         if (userManager.exists(username)) {

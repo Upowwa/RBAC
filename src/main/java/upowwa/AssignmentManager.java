@@ -156,6 +156,15 @@ public class AssignmentManager implements Repository<RoleAssignment> {
                 .collect(Collectors.toList());
     }
 
+    public boolean hasRoleInUse(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return false;
+        }
+
+        return assignments.values().stream()
+                .anyMatch(a -> a.role().getName().equalsIgnoreCase(roleName.trim()));
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

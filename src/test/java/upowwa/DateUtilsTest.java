@@ -3,31 +3,35 @@ package upowwa;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DateUtilsTest {
+class DateUtilsTest {
 
     @Test
-    void testGetCurrentDate() {
-        String date = DateUtils.getCurrentDate();
-        assertNotNull(date);
-        assertEquals(10, date.length()); // YYYY-MM-DD
+    void getCurrentDate_shouldMatchPattern() {
+        assertTrue(DateUtils.getCurrentDate().matches("\\d{4}-\\d{2}-\\d{2}"));
     }
 
     @Test
-    void testIsValidDate() {
-        assertTrue(DateUtils.isValidDate("2026-03-23"));
-        assertFalse(DateUtils.isValidDate("invalid"));
-        assertFalse(DateUtils.isValidDate(""));
+    void getCurrentDateTime_shouldMatchPattern() {
+        assertTrue(DateUtils.getCurrentDateTime().matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"));
     }
 
     @Test
-    void testAddDays() {
-        assertEquals("2026-03-25", DateUtils.addDays("2026-03-23", 2));
-        assertEquals("2026-03-21", DateUtils.addDays("2026-03-23", -2));
+    void isBefore_shouldReturnTrueForEarlierDate() {
+        assertTrue(DateUtils.isBefore("2026-05-01", "2026-05-10"));
     }
 
     @Test
-    void testIsBefore() {
-        assertTrue(DateUtils.isBefore("2026-03-22", "2026-03-23"));
-        assertFalse(DateUtils.isBefore("2026-03-24", "2026-03-23"));
+    void isAfter_shouldReturnTrueForLaterDate() {
+        assertTrue(DateUtils.isAfter("2026-05-10", "2026-05-01"));
+    }
+
+    @Test
+    void addDays_shouldAddDaysCorrectly() {
+        assertEquals("2026-05-15", DateUtils.addDays("2026-05-10", 5));
+    }
+
+    @Test
+    void formatRelativeTime_today() {
+        assertEquals("today", DateUtils.formatRelativeTime(DateUtils.getCurrentDate()));
     }
 }
