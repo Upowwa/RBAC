@@ -62,4 +62,7 @@ public class CommandParser {
             System.out.println("Введите 'help' для списка команд.");
         }
     }
+    public void register(String name, Command command) {
+        registerCommand(name, "Без описания", command);
+    }
 }
