@@ -4,8 +4,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class RoleManager implements Repository<Role> {
-    private final Map<String, Role> rolesById = new HashMap<>();  // ключ — id роли
-    private final Map<String, Role> rolesByName = new HashMap<>(); // ключ — имя роли
+    private final Map<String, Role> rolesById = new HashMap<>();
+    private final Map<String, Role> rolesByName = new HashMap<>();
+    private AssignmentManager assignmentManager;
+
+    public RoleManager() {
+    }
+    public void setAssignmentManager(AssignmentManager assignmentManager) {
+        this.assignmentManager = assignmentManager;
+    }
 
     @Override
     public void add(Role role) {
@@ -24,13 +31,22 @@ public class RoleManager implements Repository<Role> {
 
     @Override
     public boolean remove(Role role) {
-        // Проверка: роль используется в назначениях?
-        // Упрощенно - просто удаляем (проверка в AssignmentManager)
+        validateRole(role);
 
-        boolean removedById = rolesById.remove(role.getId()) != null;
-        boolean removedByName = rolesByName.remove(role.getName()) != null;
+        Role existing = rolesById.get(role.getId());
+        if (existing == null) {
+            return false;
+        }
 
-        return removedById || removedByName;
+        if (assignmentManager != null && assignmentManager.hasRoleInUse(role.getName())) {
+            throw new IllegalStateException(
+                    "Роль '" + role.getName() + "' используется в назначениях и не может быть удалена"
+            );
+        }
+
+        rolesById.remove(role.getId());
+        rolesByName.remove(role.getName());
+        return true;
     }
 
     @Override
@@ -54,12 +70,12 @@ public class RoleManager implements Repository<Role> {
         rolesByName.clear();
     }
 
-    // Дополнительные методы
     public Optional<Role> findByName(String name) {
         return Optional.ofNullable(rolesByName.get(name));
     }
 
     public List<Role> findByFilter(RoleFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
         return rolesById.values().stream()
                 .filter(filter::test)
                 .collect(Collectors.toList());
@@ -107,13 +123,12 @@ public class RoleManager implements Repository<Role> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        RoleManager that = (RoleManager) o;
-        return rolesById.equals(that.rolesById);
+        if (!(o instanceof RoleManager that)) return false;
+        return rolesById.equals(that.rolesById) && rolesByName.equals(that.rolesByName);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(rolesById);
+        return Objects.hash(rolesById, rolesByName);
     }
 }

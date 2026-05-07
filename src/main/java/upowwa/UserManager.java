@@ -17,14 +17,13 @@ public class UserManager implements Repository<User> {
 
     @Override
     public boolean remove(User user) {
+        validateUser(user);
         return users.remove(user.username()) != null;
     }
 
     @Override
     public Optional<User> findById(String id) {
-        return users.values().stream()
-                .filter(u -> u.username().equals(id))
-                .findFirst();
+        return Optional.ofNullable(users.get(id));
     }
 
     @Override
@@ -53,12 +52,16 @@ public class UserManager implements Repository<User> {
     }
 
     public List<User> findByFilter(UserFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
         return users.values().stream()
                 .filter(filter::test)
                 .collect(Collectors.toList());
     }
 
     public List<User> findAll(UserFilter filter, Comparator<User> sorter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        Objects.requireNonNull(sorter, "Sorter не может быть null");
+
         return users.values().stream()
                 .filter(filter::test)
                 .sorted(sorter)
@@ -70,17 +73,10 @@ public class UserManager implements Repository<User> {
     }
 
     public void update(String username, String newFullName, String newEmail) {
-        User user = users.get(username);
-        if (user == null) {
+        if (!users.containsKey(username)) {
             throw new IllegalArgumentException("Пользователь '" + username + "' не найден");
         }
 
-        //валидация нового email
-        if (users.values().stream().anyMatch(u -> !u.username().equals(username) && u.email().equals(newEmail))) {
-            throw new IllegalArgumentException("Email '" + newEmail + "' уже используется");
-        }
-
-        //создание обновленного пользователя
         User updatedUser = User.create(username, newFullName, newEmail);
         users.put(username, updatedUser);
     }
@@ -94,8 +90,7 @@ public class UserManager implements Repository<User> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        UserManager that = (UserManager) o;
+        if (!(o instanceof UserManager that)) return false;
         return users.equals(that.users);
     }
 
