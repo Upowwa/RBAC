@@ -4,5 +4,5 @@ import java.util.Scanner;
 
 @FunctionalInterface
 public interface Command {
-    void execute(Scanner scanner, RBACSystem system);
+    void execute(String arguments, Scanner scanner, RBACSystem system);
 }

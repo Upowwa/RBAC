@@ -1,15 +1,16 @@
 package upowwa;
 
 public class RBACSystem {
-    public final UserManager userManager;
-    public final RoleManager roleManager;
-    public final AssignmentManager assignmentManager;
+    private final UserManager userManager;
+    private final RoleManager roleManager;
+    private final AssignmentManager assignmentManager;
     private String currentUser;
 
     public RBACSystem() {
         this.userManager = new UserManager();
         this.roleManager = new RoleManager();
         this.assignmentManager = new AssignmentManager(userManager, roleManager);
+        this.roleManager.setAssignmentManager(this.assignmentManager);
         this.currentUser = "system";
     }
 
@@ -33,32 +34,11 @@ public class RBACSystem {
     public void initialize() {
         System.out.println("Инициализация RBAC системы...");
 
-        createDefaultPermissions();
         createDefaultRoles();
         createAdminUser();
         assignAdminRole();
 
         System.out.println("Система инициализирована");
-    }
-
-    private void createDefaultPermissions() {
-        Permission[] permissions = {
-                new Permission("READ", "users", "Чтение пользователей"),
-                new Permission("WRITE", "users", "Изменение пользователей"),
-                new Permission("DELETE", "users", "Удаление пользователей"),
-                new Permission("READ", "roles", "Чтение ролей"),
-                new Permission("WRITE", "roles", "Изменение ролей"),
-                new Permission("READ", "reports", "Чтение отчетов"),
-                new Permission("WRITE", "reports", "Запись отчетов")
-        };
-
-        Role tempRole = new Role("temp", "temp");
-        roleManager.add(tempRole);
-
-        for (Permission perm : permissions) {
-            roleManager.addPermissionToRole("temp", perm);
-        }
-        roleManager.remove(tempRole);
     }
 
     private void createDefaultRoles() {

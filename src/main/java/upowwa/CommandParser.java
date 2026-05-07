@@ -13,16 +13,21 @@ public class CommandParser {
     }
 
     public void registerCommand(String name, String description, Command command) {
-        commands.put(name.toLowerCase(), command);
-        commandDescriptions.put(name.toLowerCase(), description);
+        Objects.requireNonNull(name, "Имя команды не может быть null");
+        Objects.requireNonNull(description, "Описание команды не может быть null");
+        Objects.requireNonNull(command, "Command не может быть null");
+
+        String key = name.trim().toLowerCase();
+        commands.put(key, command);
+        commandDescriptions.put(key, description);
     }
 
-    public void executeCommand(String commandName, Scanner scanner, RBACSystem system) {
+    public void executeCommand(String commandName, String arguments, Scanner scanner, RBACSystem system) {
         String cmdName = commandName.toLowerCase();
         Command cmd = commands.get(cmdName);
 
         if (cmd != null) {
-            cmd.execute(scanner, system);
+            cmd.execute(arguments, scanner, system);
         } else {
             System.out.println("Команда '" + commandName + "' не найдена!");
         }
@@ -46,10 +51,12 @@ public class CommandParser {
         }
 
         String[] parts = input.trim().split("\\s+", 2);
-        String commandName = parts[0];
+        String commandName = parts[0].toLowerCase();
+        String arguments = parts.length > 1 ? parts[1].trim() : "";
 
-        if (commands.containsKey(commandName.toLowerCase())) {
-            executeCommand(commandName, scanner, system);
+        Command command = commands.get(commandName);
+        if (command != null) {
+            command.execute(arguments, scanner, system);
         } else {
             System.out.println("Неизвестная команда: " + commandName);
             System.out.println("Введите 'help' для списка команд.");
