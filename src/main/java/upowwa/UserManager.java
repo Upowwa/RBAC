@@ -1,0 +1,115 @@
+package upowwa;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+public class UserManager implements Repository<User> {
+    private final Map<String, User> users = new ConcurrentHashMap<>();
+
+    @Override
+    public void add(User user) {
+        validateUser(user);
+        User existing = users.putIfAbsent(user.username(), user);
+        if (existing != null) {
+            throw new IllegalArgumentException("Пользователь с username '" + user.username() + "' уже существует");
+        }
+    }
+
+    @Override
+    public boolean remove(User user) {
+        validateUser(user);
+        return users.remove(user.username()) != null;
+    }
+
+    @Override
+    public Optional<User> findById(String id) {
+        return Optional.ofNullable(users.get(id));
+    }
+
+    @Override
+    public List<User> findAll() {
+        return new ArrayList<>(users.values());
+    }
+
+    @Override
+    public int count() {
+        return users.size();
+    }
+
+    @Override
+    public void clear() {
+        users.clear();
+    }
+
+    public Optional<User> findByUsername(String username) {
+        return Optional.ofNullable(users.get(username));
+    }
+
+    public Optional<User> findByEmail(String email) {
+        return users.values().stream()
+                .filter(u -> u.email().equals(email))
+                .findFirst();
+    }
+
+    public List<User> findByFilter(UserFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return users.values().stream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
+    public List<User> findByFilterParallel(UserFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return findAll().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
+    public List<User> findAll(UserFilter filter, Comparator<User> sorter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        Objects.requireNonNull(sorter, "Sorter не может быть null");
+
+        return users.values().stream()
+                .filter(filter::test)
+                .sorted(sorter)
+                .collect(Collectors.toList());
+    }
+
+    public boolean exists(String username) {
+        return users.containsKey(username);
+    }
+
+    public void update(String username, String newFullName, String newEmail) {
+        User updatedUser = User.create(username, newFullName, newEmail);
+        User previous = users.replace(username, updatedUser);
+        if (previous == null) {
+            throw new IllegalArgumentException("Пользователь '" + username + "' не найден");
+        }
+    }
+
+    private void validateUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User не может быть null");
+        }
+    }
+
+    public User findByName(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return null;
+        }
+        return findByUsername(username).orElse(null);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof UserManager that)) return false;
+        return users.equals(that.users);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(users);
+    }
+}

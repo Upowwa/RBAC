@@ -1,0 +1,202 @@
+package upowwa;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+public class AssignmentManager implements Repository<RoleAssignment> {
+    private final Map<String, RoleAssignment> assignments = new ConcurrentHashMap<>();
+    private final Set<String> processedExpiredAssignments = ConcurrentHashMap.newKeySet();
+    private final UserManager userManager;
+    private final RoleManager roleManager;
+
+    public AssignmentManager(UserManager userManager, RoleManager roleManager) {
+        this.userManager = Objects.requireNonNull(userManager);
+        this.roleManager = Objects.requireNonNull(roleManager);
+    }
+
+    @Override
+    public synchronized void add(RoleAssignment assignment) {
+        validateAssignment(assignment);
+
+        RoleAssignment existing = assignments.putIfAbsent(assignment.assignmentId(), assignment);
+        if (existing != null) {
+            throw new IllegalArgumentException("Назначение '" + assignment.assignmentId() + "' уже существует");
+        }
+    }
+
+    @Override
+    public synchronized boolean remove(RoleAssignment assignment) {
+        processedExpiredAssignments.remove(assignment.assignmentId());
+        return assignments.remove(assignment.assignmentId()) != null;
+    }
+
+    @Override
+    public Optional<RoleAssignment> findById(String id) {
+        return Optional.ofNullable(assignments.get(id));
+    }
+
+    @Override
+    public List<RoleAssignment> findAll() {
+        return new ArrayList<>(assignments.values());
+    }
+
+    @Override
+    public int count() {
+        return assignments.size();
+    }
+
+    @Override
+    public synchronized void clear() {
+        assignments.clear();
+        processedExpiredAssignments.clear();
+    }
+
+    public List<RoleAssignment> findByUser(User user) {
+        return assignments.values().stream()
+                .filter(a -> a.user().equals(user))
+                .collect(Collectors.toList());
+    }
+
+    public List<RoleAssignment> findByRole(Role role) {
+        return assignments.values().stream()
+                .filter(a -> a.role().equals(role))
+                .collect(Collectors.toList());
+    }
+
+    public List<RoleAssignment> findByFilter(AssignmentFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return assignments.values().stream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
+    public List<RoleAssignment> findByFilterParallel(AssignmentFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return findAll().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
+    public List<RoleAssignment> findAll(AssignmentFilter filter, Comparator<RoleAssignment> sorter) {
+        return assignments.values().stream()
+                .filter(filter::test)
+                .sorted(sorter)
+                .collect(Collectors.toList());
+    }
+
+    public List<RoleAssignment> getActiveAssignments() {
+        return findByFilter(AssignmentFilters.activeOnly());
+    }
+
+    public List<RoleAssignment> getExpiredAssignments() {
+        return findByFilter(AssignmentFilters.inactiveOnly());
+    }
+
+    public boolean userHasRole(User user, Role role) {
+        return assignments.values().stream()
+                .anyMatch(a -> a.user().equals(user) && a.role().equals(role) && a.isActive());
+    }
+
+    public boolean userHasPermission(User user, String permissionName, String resource) {
+        return assignments.values().stream()
+                .filter(a -> a.user().equals(user) && a.isActive())
+                .flatMap(a -> a.role().getPermissions().stream())
+                .anyMatch(p -> p.matches(permissionName, resource));
+    }
+
+    public Set<Permission> getUserPermissions(User user) {
+        return assignments.values().stream()
+                .filter(a -> a.user().equals(user) && a.isActive())
+                .flatMap(a -> a.role().getPermissions().stream())
+                .collect(Collectors.toSet());
+    }
+
+    public synchronized void revokeAssignment(String assignmentId) {
+        RoleAssignment assignment = assignments.get(assignmentId);
+        if (assignment == null) {
+            throw new IllegalArgumentException("Назначение '" + assignmentId + "' не найдено");
+        }
+        if (assignment instanceof PermanentAssignment perm) {
+            perm.revoke();
+        } else {
+            throw new IllegalArgumentException("Только PermanentAssignment можно отозвать");
+        }
+    }
+
+    public synchronized void extendTemporaryAssignment(String assignmentId, String newExpirationDate) {
+        RoleAssignment assignment = assignments.get(assignmentId);
+        if (assignment == null) {
+            throw new IllegalArgumentException("Назначение '" + assignmentId + "' не найдено");
+        }
+        if (!(assignment instanceof TemporaryAssignment temp)) {
+            throw new IllegalArgumentException("Только TemporaryAssignment можно продлить");
+        }
+        temp.extend(newExpirationDate);
+    }
+
+    private void validateAssignment(RoleAssignment assignment) {
+        if (assignment == null) {
+            throw new IllegalArgumentException("Assignment не может быть null");
+        }
+
+        //проверка существования пользователя и роли
+        if (!userManager.exists(assignment.user().username())) {
+            throw new IllegalArgumentException("Пользователь '" + assignment.user().username() + "' не существует");
+        }
+        if (!roleManager.exists(assignment.role().getName())) {
+            throw new IllegalArgumentException("Роль '" + assignment.role().getName() + "' не существует");
+        }
+
+        //проверка дублирования активных назначений той же роли
+        if (assignments.values().stream()
+                .anyMatch(a -> a != assignment &&
+                        a.user().equals(assignment.user()) &&
+                        a.role().equals(assignment.role()) &&
+                        a.isActive())) {
+            throw new IllegalArgumentException("У пользователя уже есть активное назначение роли '" +
+                    assignment.role().getName() + "'");
+        }
+    }
+
+    public List<String> getRoleUsers(String roleName) {
+        return assignments.values().stream()
+                .filter(a -> a.role().getName().equals(roleName) && a.isActive())
+                .map(a -> a.user().username())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    public boolean hasRoleInUse(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return false;
+        }
+
+        return assignments.values().stream()
+                .anyMatch(a -> a.role().getName().equalsIgnoreCase(roleName.trim()));
+    }
+
+    public List<TemporaryAssignment> markExpiredTemporaryAssignments() {
+        List<TemporaryAssignment> expiredToProcess = assignments.values().stream()
+                .filter(assignment -> assignment instanceof TemporaryAssignment)
+                .map(assignment -> (TemporaryAssignment) assignment)
+                .filter(TemporaryAssignment::isExpired)
+                .filter(assignment -> processedExpiredAssignments.add(assignment.assignmentId()))
+                .collect(Collectors.toList());
+
+        return expiredToProcess;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AssignmentManager that = (AssignmentManager) o;
+        return assignments.equals(that.assignments);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(assignments);
+    }
+}

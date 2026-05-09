@@ -1,0 +1,169 @@
+package upowwa;
+
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+public class RBACSystem {
+    private final UserManager userManager;
+    private final RoleManager roleManager;
+    private final AssignmentManager assignmentManager;
+    private final AuditLog auditLog;
+    private final ReportGenerator reportGenerator;
+    private final BackgroundExecutor backgroundExecutor;
+    private final ScheduledExecutorService scheduler;
+    private volatile String currentUser;
+    private volatile boolean scheduledTasksStarted = false;
+
+    public RBACSystem() {
+        this.userManager = new UserManager();
+        this.roleManager = new RoleManager();
+        this.assignmentManager = new AssignmentManager(userManager, roleManager);
+        this.roleManager.setAssignmentManager(this.assignmentManager);
+        this.currentUser = "system";
+        this.auditLog = new AuditLog();
+        this.reportGenerator = new ReportGenerator();
+        this.backgroundExecutor = new BackgroundExecutor();
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
+    }
+
+    //геттеры
+    public UserManager getUserManager() { return userManager; }
+    public RoleManager getRoleManager() { return roleManager; }
+    public AssignmentManager getAssignmentManager() { return assignmentManager; }
+    public AuditLog getAuditLog() { return auditLog; }
+    public ReportGenerator getReportGenerator() { return reportGenerator; }
+    public BackgroundExecutor getBackgroundExecutor() { return backgroundExecutor; }
+
+    public synchronized void startScheduledTasks(int periodSeconds) {
+        if (periodSeconds <= 0) {
+            throw new IllegalArgumentException("Период должен быть больше 0");
+        }
+        if (scheduledTasksStarted) {
+            return;
+        }
+
+        scheduledTasksStarted = true;
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                List<TemporaryAssignment> expiredAssignments =
+                        assignmentManager.markExpiredTemporaryAssignments();
+
+                for (TemporaryAssignment assignment : expiredAssignments) {
+                    auditLog.log(
+                            "TEMP_ASSIGNMENT_EXPIRED",
+                            "scheduler",
+                            assignment.user().username(),
+                            "Истекло временное назначение роли '" + assignment.role().getName() +
+                                    "' до " + assignment.getExpiresAt()
+                    );
+                }
+
+                auditLog.log(
+                        "SYSTEM_STATS",
+                        "scheduler",
+                        "RBACSystem",
+                        generateStatistics().replace("\n", " | ")
+                );
+            } catch (Exception e) {
+                auditLog.log(
+                        "SCHEDULER_ERROR",
+                        "scheduler",
+                        "RBACSystem",
+                        String.valueOf(e.getMessage())
+                );
+            }
+        }, periodSeconds, periodSeconds, TimeUnit.SECONDS);
+    }
+
+    public void setCurrentUser(String username) {
+        if (userManager.exists(username)) {
+            this.currentUser = username;
+        } else {
+            throw new IllegalArgumentException("Пользователь '" + username + "' не существует");
+        }
+    }
+
+    public String getCurrentUser() {
+        return currentUser;
+    }
+
+    public synchronized void initialize() {
+        System.out.println("Инициализация RBAC системы...");
+
+        createDefaultRoles();
+        createAdminUser();
+        assignAdminRole();
+
+        System.out.println("Система инициализирована");
+    }
+
+    private void createDefaultRoles() {
+        Role admin = new Role("Admin", "Полный доступ");
+        Role manager = new Role("Manager", "Управление пользователями");
+        Role viewer = new Role("Viewer", "Только чтение");
+
+        roleManager.add(admin);
+        roleManager.add(manager);
+        roleManager.add(viewer);
+
+        roleManager.addPermissionToRole("Admin", new Permission("READ", "users", "Чтение пользователей"));
+        roleManager.addPermissionToRole("Admin", new Permission("WRITE", "users", "Изменение пользователей"));
+        roleManager.addPermissionToRole("Admin", new Permission("DELETE", "users", "Удаление пользователей"));
+
+        roleManager.addPermissionToRole("Manager", new Permission("READ", "users", "Чтение пользователей"));
+        roleManager.addPermissionToRole("Manager", new Permission("WRITE", "users", "Изменение пользователей"));
+
+        roleManager.addPermissionToRole("Viewer", new Permission("READ", "users", "Чтение пользователей"));
+        roleManager.addPermissionToRole("Viewer", new Permission("READ", "reports", "Чтение отчетов"));
+    }
+
+    private void createAdminUser() {
+        if (!userManager.exists("admin")) {
+            User adminUser = User.create("admin", "Системный администратор", "admin@rbac.com");
+            userManager.add(adminUser);
+            this.currentUser = "admin";
+        }
+    }
+
+    private void assignAdminRole() {
+        Role adminRole = roleManager.findByName("Admin").orElseThrow();
+        User adminUser = userManager.findByUsername("admin").orElseThrow();
+
+        AssignmentMetadata meta = AssignmentMetadata.now(currentUser, "Системная инициализация");
+        PermanentAssignment adminAssignment = new PermanentAssignment(adminUser, adminRole, meta);
+        assignmentManager.add(adminAssignment);
+    }
+
+    public String generateStatistics() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("СТАТИСТИКА RBAC СИСТЕМЫ\n");
+        stats.append(String.format("Пользователей: %d\n", userManager.count()));
+        stats.append(String.format("Ролей: %d\n", roleManager.count()));
+        stats.append(String.format("Назначений: %d\n", assignmentManager.count()));
+        stats.append(String.format("Прав доступа: %d\n",
+                roleManager.findAll().stream().mapToInt(role -> role.getPermissions().size()).sum()));
+        stats.append(String.format("Текущий администратор: %s\n", currentUser));
+        return stats.toString();
+    }
+
+    public void stopScheduledTasks() {
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(3, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void shutdown() {
+        stopScheduledTasks();
+        auditLog.shutdown();
+        backgroundExecutor.shutdown();
+    }
+}
