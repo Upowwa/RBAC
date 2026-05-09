@@ -100,6 +100,7 @@ public class RBACSystem {
     }
 
     public void shutdown() {
+        auditLog.shutdown();
         backgroundExecutor.shutdown();
     }
 }

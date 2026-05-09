@@ -7,10 +7,37 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 public class AuditLog {
     private final List<AuditEntry> entries = new ArrayList<>();
+    private final BlockingQueue<AuditEntry> queue = new LinkedBlockingQueue<>();
+    private final Thread workerThread;
+    private volatile boolean running = true;
+
+    public AuditLog() {
+        this.workerThread = new Thread(() -> {
+            while (running || !queue.isEmpty()) {
+                try {
+                    AuditEntry entry = queue.take();
+                    synchronized (entries) {
+                        entries.add(entry);
+                    }
+                } catch (InterruptedException e) {
+                    if (!running) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        });
+
+        this.workerThread.setName("audit-log-worker");
+        this.workerThread.setDaemon(true);
+        this.workerThread.start();
+    }
 
     public void log(String action, String performer, String target, String details) {
         if (action == null || action.trim().isEmpty()) {
@@ -19,55 +46,67 @@ public class AuditLog {
         if (performer == null || performer.trim().isEmpty()) {
             throw new IllegalArgumentException("Исполнитель не может быть пустым");
         }
-        entries.add(AuditEntry.now(action, performer, target, details));
+        queue.offer(AuditEntry.now(action, performer, target, details));
     }
 
     public List<AuditEntry> getAll() {
-        return new ArrayList<>(entries);
+        synchronized (entries) {
+            return new ArrayList<>(entries);
+        }
     }
 
     public List<AuditEntry> getByPerformer(String performer) {
         if (performer == null || performer.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        return entries.stream()
-                .filter(e -> e.performer().equalsIgnoreCase(performer.trim()))
-                .collect(Collectors.toList());
+        synchronized (entries) {
+            return entries.stream()
+                    .filter(e -> e.performer().equalsIgnoreCase(performer.trim()))
+                    .collect(Collectors.toList());
+        }
     }
 
     public List<AuditEntry> getByAction(String action) {
         if (action == null || action.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        return entries.stream()
-                .filter(e -> e.action().equalsIgnoreCase(action.trim()))
-                .collect(Collectors.toList());
+        synchronized (entries) {
+            return entries.stream()
+                    .filter(e -> e.action().equalsIgnoreCase(action.trim()))
+                    .collect(Collectors.toList());
+        }
     }
 
     public int count() {
-        return entries.size();
+        synchronized (entries) {
+            return entries.size();
+        }
     }
 
     public void clear() {
-        entries.clear();
+        synchronized (entries) {
+            entries.clear();
+        }
     }
 
     public void printLog() {
-        if (entries.isEmpty()) {
-            System.out.println("Лог аудита пуст");
-            return;
-        }
-        System.out.println("\n=== Audit Log (" + entries.size() + " entries) ===");
-        System.out.printf("%-20s %-15s %-15s %-20s %s%n",
-                "Timestamp", "Action", "Performer", "Target", "Details");
-        System.out.println("=".repeat(90));
-        for (AuditEntry entry : entries) {
+        synchronized (entries) {
+            if (entries.isEmpty()) {
+                System.out.println("Лог аудита пуст");
+                return;
+            }
+            System.out.println("\n=== Audit Log (" + entries.size() + " entries) ===");
             System.out.printf("%-20s %-15s %-15s %-20s %s%n",
-                    entry.timestamp(),
-                    entry.action(),
-                    entry.performer(),
-                    entry.target(),
-                    entry.details());
+                    "Timestamp", "Action", "Performer", "Target", "Details");
+            System.out.println("=".repeat(90));
+            for (AuditEntry entry : entries) {
+                System.out.printf("%-20s %-15s %-15s %-20s %s%n",
+                        entry.timestamp(),
+                        entry.action(),
+                        entry.performer(),
+                        entry.target(),
+                        entry.details());
+            }
         }
     }
 
@@ -75,14 +114,16 @@ public class AuditLog {
         if (filename == null || filename.trim().isEmpty()) {
             throw new IllegalArgumentException("Имя файла не может быть пустым");
         }
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
-            for (AuditEntry entry : entries) {
-                writer.write(entry.format());
-                writer.newLine();
+        synchronized (entries) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
+                for (AuditEntry entry : entries) {
+                    writer.write(entry.format());
+                    writer.newLine();
+                }
+                System.out.println("Лог сохранён в файл: " + filename);
+            } catch (IOException e) {
+                throw new RuntimeException("Ошибка сохранения лога: " + e.getMessage(), e);
             }
-            System.out.println("Лог сохранён в файл: " + filename);
-        } catch (IOException e) {
-            throw new RuntimeException("Ошибка сохранения лога: " + e.getMessage(), e);
         }
     }
 
@@ -92,21 +133,37 @@ public class AuditLog {
         }
         try {
             List<String> lines = Files.readAllLines(Paths.get(filename));
+            List<AuditEntry> loadedEntries = new ArrayList<>();
+
             for (String line : lines) {
-                // Простой парсинг: [timestamp] action | performer | target | details
                 if (line.startsWith("[") && line.contains("]")) {
                     int closeBracket = line.indexOf("]");
                     String timestamp = line.substring(1, closeBracket);
                     String rest = line.substring(closeBracket + 2).trim();
                     String[] parts = rest.split(" \\| ", 4);
                     if (parts.length == 4) {
-                        entries.add(new AuditEntry(timestamp, parts[0], parts[1], parts[2], parts[3]));
+                        loadedEntries.add(new AuditEntry(timestamp, parts[0], parts[1], parts[2], parts[3]));
                     }
                 }
             }
-            System.out.println("Лог загружен из файла: " + filename + " (" + lines.size() + " записей)");
+
+            synchronized (entries) {
+                entries.addAll(loadedEntries);
+            }
+
+            System.out.println("Лог загружен из файла: " + filename + " (" + loadedEntries.size() + " записей)");
         } catch (IOException e) {
             System.out.println("Файл лога не найден или не читается: " + filename);
+        }
+    }
+
+    public void shutdown() {
+        running = false;
+        workerThread.interrupt();
+        try {
+            workerThread.join(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
