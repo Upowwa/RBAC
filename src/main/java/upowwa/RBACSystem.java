@@ -5,6 +5,8 @@ public class RBACSystem {
     private final RoleManager roleManager;
     private final AssignmentManager assignmentManager;
     private final AuditLog auditLog;
+    private final ReportGenerator reportGenerator;
+    private final BackgroundExecutor backgroundExecutor;
     private volatile String currentUser;
 
     public RBACSystem() {
@@ -14,15 +16,17 @@ public class RBACSystem {
         this.roleManager.setAssignmentManager(this.assignmentManager);
         this.currentUser = "system";
         this.auditLog = new AuditLog();
+        this.reportGenerator = new ReportGenerator();
+        this.backgroundExecutor = new BackgroundExecutor();
     }
 
     //геттеры
     public UserManager getUserManager() { return userManager; }
     public RoleManager getRoleManager() { return roleManager; }
     public AssignmentManager getAssignmentManager() { return assignmentManager; }
-    public AuditLog getAuditLog() {
-        return auditLog;
-    }
+    public AuditLog getAuditLog() { return auditLog; }
+    public ReportGenerator getReportGenerator() { return reportGenerator; }
+    public BackgroundExecutor getBackgroundExecutor() { return backgroundExecutor; }
 
     public void setCurrentUser(String username) {
         if (userManager.exists(username)) {
@@ -93,5 +97,9 @@ public class RBACSystem {
                 roleManager.findAll().stream().mapToInt(role -> role.getPermissions().size()).sum()));
         stats.append(String.format("Текущий администратор: %s\n", currentUser));
         return stats.toString();
+    }
+
+    public void shutdown() {
+        backgroundExecutor.shutdown();
     }
 }

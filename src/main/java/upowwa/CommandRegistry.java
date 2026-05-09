@@ -1092,5 +1092,37 @@ public class CommandRegistry {
                 generator.exportToFile(report, fileName);
             }
         });
+
+        parser.registerCommand("report-users-async", "Асинхронный отчёт по пользователям", (args, scanner, system) -> {
+            System.out.println("Запуск генерации отчёта в фоновом потоке...");
+
+            system.getBackgroundExecutor().submit(() -> {
+                try {
+                    String report = system.getReportGenerator()
+                            .generateUserReport(system.getUserManager(), system.getAssignmentManager());
+
+                    System.out.println("\n=== Асинхронный отчёт по пользователям ===");
+                    System.out.println(report);
+                } catch (Exception e) {
+                    System.out.println("Ошибка при асинхронной генерации отчёта: " + e.getMessage());
+                }
+            });
+        });
+
+        parser.registerCommand("save-async", "Сохранить данные в файл в фоне", (args, scanner, system) -> {
+            String fileName = ConsoleUtils.promptString(scanner, "Имя файла", true);
+
+            system.getBackgroundExecutor().submit(() -> {
+                try {
+                    String report = system.getReportGenerator()
+                            .generateUserReport(system.getUserManager(), system.getAssignmentManager());
+
+                    system.getReportGenerator().exportToFile(report, fileName);
+                    System.out.println("Сохранение отчёта запущено в фоне.");
+                } catch (Exception e) {
+                    System.out.println("Ошибка при фоновом сохранении: " + e.getMessage());
+                }
+            });
+        });
     }
 }
