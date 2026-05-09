@@ -5,7 +5,7 @@ public class RBACSystem {
     private final RoleManager roleManager;
     private final AssignmentManager assignmentManager;
     private final AuditLog auditLog;
-    private String currentUser;
+    private volatile String currentUser;
 
     public RBACSystem() {
         this.userManager = new UserManager();
@@ -36,7 +36,7 @@ public class RBACSystem {
         return currentUser;
     }
 
-    public void initialize() {
+    public synchronized void initialize() {
         System.out.println("Инициализация RBAC системы...");
 
         createDefaultRoles();

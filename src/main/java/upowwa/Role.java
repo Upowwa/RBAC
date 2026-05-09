@@ -1,9 +1,11 @@
 package upowwa;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Role {
-    private static int counter = 0;
+    private static final AtomicInteger COUNTER = new AtomicInteger(0);
 
     private final String id;
     private final String name;
@@ -18,10 +20,10 @@ public class Role {
             throw new IllegalArgumentException("Description не может быть null или пустым");
         }
 
-        this.id = "role_" + (++counter);
+        this.id = "role_" + COUNTER.incrementAndGet();
         this.name = name.trim();
         this.description = description.trim();
-        this.permissions = new HashSet<>();
+        this.permissions = ConcurrentHashMap.newKeySet();
     }
 
     public void addPermission(Permission permission) {

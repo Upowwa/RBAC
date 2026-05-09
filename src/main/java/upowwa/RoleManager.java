@@ -1,12 +1,13 @@
 package upowwa;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class RoleManager implements Repository<Role> {
-    private final Map<String, Role> rolesById = new HashMap<>();
-    private final Map<String, Role> rolesByName = new HashMap<>();
-    private AssignmentManager assignmentManager;
+    private final Map<String, Role> rolesById = new ConcurrentHashMap<>();
+    private final Map<String, Role> rolesByName = new ConcurrentHashMap<>();
+    private volatile AssignmentManager assignmentManager;
 
     public RoleManager() {
     }
@@ -15,7 +16,7 @@ public class RoleManager implements Repository<Role> {
     }
 
     @Override
-    public void add(Role role) {
+    public synchronized void add(Role role) {
         validateRole(role);
 
         if (rolesById.containsKey(role.getId())) {
@@ -30,7 +31,7 @@ public class RoleManager implements Repository<Role> {
     }
 
     @Override
-    public boolean remove(Role role) {
+    public synchronized boolean remove(Role role) {
         validateRole(role);
 
         Role existing = rolesById.get(role.getId());
@@ -65,7 +66,7 @@ public class RoleManager implements Repository<Role> {
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
         rolesById.clear();
         rolesByName.clear();
     }
@@ -77,6 +78,13 @@ public class RoleManager implements Repository<Role> {
     public List<Role> findByFilter(RoleFilter filter) {
         Objects.requireNonNull(filter, "Filter не может быть null");
         return rolesById.values().stream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
+    public List<Role> findByFilterParallel(RoleFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return findAll().parallelStream()
                 .filter(filter::test)
                 .collect(Collectors.toList());
     }

@@ -1,16 +1,17 @@
 package upowwa;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractRoleAssignment implements RoleAssignment {
-    private static int assignmentCounter = 0;
+    private static final AtomicInteger ASSIGNMENT_COUNTER = new AtomicInteger(0);
     private final String assignmentId;
     private final User user;
     private final Role role;
     private final AssignmentMetadata metadata;
 
     public AbstractRoleAssignment(User user, Role role, AssignmentMetadata metadata) {
-        this.assignmentId = "assign_" + (++assignmentCounter);
+        this.assignmentId = "assign_" + ASSIGNMENT_COUNTER.incrementAndGet();
         this.user = Objects.requireNonNull(user, "User не может быть null");
         this.role = Objects.requireNonNull(role, "Role не может быть null");
         this.metadata = Objects.requireNonNull(metadata, "Metadata не может быть null");

@@ -1,18 +1,19 @@
 package upowwa;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class UserManager implements Repository<User> {
-    private final Map<String, User> users = new HashMap<>();
+    private final Map<String, User> users = new ConcurrentHashMap<>();
 
     @Override
     public void add(User user) {
         validateUser(user);
-        if (users.containsKey(user.username())) {
+        User existing = users.putIfAbsent(user.username(), user);
+        if (existing != null) {
             throw new IllegalArgumentException("Пользователь с username '" + user.username() + "' уже существует");
         }
-        users.put(user.username(), user);
     }
 
     @Override
@@ -58,6 +59,13 @@ public class UserManager implements Repository<User> {
                 .collect(Collectors.toList());
     }
 
+    public List<User> findByFilterParallel(UserFilter filter) {
+        Objects.requireNonNull(filter, "Filter не может быть null");
+        return findAll().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
+
     public List<User> findAll(UserFilter filter, Comparator<User> sorter) {
         Objects.requireNonNull(filter, "Filter не может быть null");
         Objects.requireNonNull(sorter, "Sorter не может быть null");
@@ -73,12 +81,11 @@ public class UserManager implements Repository<User> {
     }
 
     public void update(String username, String newFullName, String newEmail) {
-        if (!users.containsKey(username)) {
+        User updatedUser = User.create(username, newFullName, newEmail);
+        User previous = users.replace(username, updatedUser);
+        if (previous == null) {
             throw new IllegalArgumentException("Пользователь '" + username + "' не найден");
         }
-
-        User updatedUser = User.create(username, newFullName, newEmail);
-        users.put(username, updatedUser);
     }
 
     private void validateUser(User user) {

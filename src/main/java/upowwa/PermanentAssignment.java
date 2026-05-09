@@ -1,7 +1,7 @@
 package upowwa;
 
 public class PermanentAssignment extends AbstractRoleAssignment {
-    private boolean revoked = false;
+    private volatile boolean revoked = false;
 
     public PermanentAssignment(User user, Role role, AssignmentMetadata metadata) {
         super(user, role, metadata);

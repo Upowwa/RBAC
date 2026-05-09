@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 public class TemporaryAssignment extends AbstractRoleAssignment {
-    private String expiresAt;
+    private volatile String expiresAt;
     private final boolean autoRenew;
 
     public TemporaryAssignment(User user, Role role, AssignmentMetadata metadata,
