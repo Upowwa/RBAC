@@ -1,5 +1,10 @@
 package upowwa;
 
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 public class RBACSystem {
     private final UserManager userManager;
     private final RoleManager roleManager;
@@ -7,7 +12,9 @@ public class RBACSystem {
     private final AuditLog auditLog;
     private final ReportGenerator reportGenerator;
     private final BackgroundExecutor backgroundExecutor;
+    private final ScheduledExecutorService scheduler;
     private volatile String currentUser;
+    private volatile boolean scheduledTasksStarted = false;
 
     public RBACSystem() {
         this.userManager = new UserManager();
@@ -18,6 +25,7 @@ public class RBACSystem {
         this.auditLog = new AuditLog();
         this.reportGenerator = new ReportGenerator();
         this.backgroundExecutor = new BackgroundExecutor();
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     //геттеры
@@ -27,6 +35,48 @@ public class RBACSystem {
     public AuditLog getAuditLog() { return auditLog; }
     public ReportGenerator getReportGenerator() { return reportGenerator; }
     public BackgroundExecutor getBackgroundExecutor() { return backgroundExecutor; }
+
+    public synchronized void startScheduledTasks(int periodSeconds) {
+        if (periodSeconds <= 0) {
+            throw new IllegalArgumentException("Период должен быть больше 0");
+        }
+        if (scheduledTasksStarted) {
+            return;
+        }
+
+        scheduledTasksStarted = true;
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                List<TemporaryAssignment> expiredAssignments =
+                        assignmentManager.markExpiredTemporaryAssignments();
+
+                for (TemporaryAssignment assignment : expiredAssignments) {
+                    auditLog.log(
+                            "TEMP_ASSIGNMENT_EXPIRED",
+                            "scheduler",
+                            assignment.user().username(),
+                            "Истекло временное назначение роли '" + assignment.role().getName() +
+                                    "' до " + assignment.getExpiresAt()
+                    );
+                }
+
+                auditLog.log(
+                        "SYSTEM_STATS",
+                        "scheduler",
+                        "RBACSystem",
+                        generateStatistics().replace("\n", " | ")
+                );
+            } catch (Exception e) {
+                auditLog.log(
+                        "SCHEDULER_ERROR",
+                        "scheduler",
+                        "RBACSystem",
+                        String.valueOf(e.getMessage())
+                );
+            }
+        }, periodSeconds, periodSeconds, TimeUnit.SECONDS);
+    }
 
     public void setCurrentUser(String username) {
         if (userManager.exists(username)) {
@@ -99,7 +149,20 @@ public class RBACSystem {
         return stats.toString();
     }
 
+    public void stopScheduledTasks() {
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(3, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public void shutdown() {
+        stopScheduledTasks();
         auditLog.shutdown();
         backgroundExecutor.shutdown();
     }

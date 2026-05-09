@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 public class AssignmentManager implements Repository<RoleAssignment> {
     private final Map<String, RoleAssignment> assignments = new ConcurrentHashMap<>();
+    private final Set<String> processedExpiredAssignments = ConcurrentHashMap.newKeySet();
     private final UserManager userManager;
     private final RoleManager roleManager;
 
@@ -26,6 +27,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
 
     @Override
     public synchronized boolean remove(RoleAssignment assignment) {
+        processedExpiredAssignments.remove(assignment.assignmentId());
         return assignments.remove(assignment.assignmentId()) != null;
     }
 
@@ -47,6 +49,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     @Override
     public synchronized void clear() {
         assignments.clear();
+        processedExpiredAssignments.clear();
     }
 
     public List<RoleAssignment> findByUser(User user) {
@@ -171,6 +174,17 @@ public class AssignmentManager implements Repository<RoleAssignment> {
 
         return assignments.values().stream()
                 .anyMatch(a -> a.role().getName().equalsIgnoreCase(roleName.trim()));
+    }
+
+    public List<TemporaryAssignment> markExpiredTemporaryAssignments() {
+        List<TemporaryAssignment> expiredToProcess = assignments.values().stream()
+                .filter(assignment -> assignment instanceof TemporaryAssignment)
+                .map(assignment -> (TemporaryAssignment) assignment)
+                .filter(TemporaryAssignment::isExpired)
+                .filter(assignment -> processedExpiredAssignments.add(assignment.assignmentId()))
+                .collect(Collectors.toList());
+
+        return expiredToProcess;
     }
 
     @Override
