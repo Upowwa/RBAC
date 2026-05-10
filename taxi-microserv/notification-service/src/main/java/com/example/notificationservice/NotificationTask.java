@@ -1,26 +1,38 @@
 package com.example.notificationservice;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "notification_tasks")
+@Table(
+        name = "notification_tasks",
+        indexes = {
+                @Index(name = "idx_notification_tasks_status", columnList = "status")
+        }
+)
 public class NotificationTask {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
     @Column(name = "trip_id", nullable = false)
     private Long tripId;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "recipient_type", nullable = false)
     private RecipientType recipientType;
 
+    @NotNull
     @Column(name = "recipient_id", nullable = false)
     private Long recipientId;
 
+    @NotBlank
     @Column(nullable = false, length = 1000)
     private String message;
 
@@ -31,7 +43,7 @@ public class NotificationTask {
     @Column(nullable = false)
     private Integer attempts;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)

@@ -1,6 +1,7 @@
 package com.example.tripservice;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -14,7 +15,12 @@ enum TripStatus {
 }
 
 @Entity
-@Table(name = "trips")
+@Table(
+        name = "trips",
+        indexes = {
+                @Index(name = "idx_trips_status", columnList = "status")
+        }
+)
 class Trip {
 
     @Id
@@ -29,7 +35,7 @@ class Trip {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TripStatus status = TripStatus.PENDING;
+    private TripStatus status;
 
     @Column(nullable = false)
     private String origin;
@@ -38,15 +44,34 @@ class Trip {
     private String destination;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price = BigDecimal.valueOf(100);
+    private BigDecimal price;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    private LocalDateTime updatedAt;
 
     public Trip() {
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+
+        if (status == null) {
+            status = TripStatus.PENDING;
+        }
+
+        if (price == null) {
+            price = BigDecimal.valueOf(100);
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public Long getId() {

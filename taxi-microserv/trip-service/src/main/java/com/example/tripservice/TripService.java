@@ -1,24 +1,24 @@
 package com.example.tripservice;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @Service
 class TripService {
-
     private final TripRepository tripRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     private static final String USER_SERVICE_URL = "http://localhost:8081";
+    private static final String NOTIFICATION_SERVICE_URL = "http://localhost:8083";
 
-    TripService(TripRepository tripRepository) {
+    TripService(TripRepository tripRepository, RestTemplate restTemplate) {
         this.tripRepository = tripRepository;
+        this.restTemplate = restTemplate;
     }
 
     @Transactional
@@ -29,13 +29,12 @@ class TripService {
 
         verifyPassengerExists(passengerId);
 
-        Map<String, Object> driver = findAndLockAvailableDriver();
-        if (driver == null) {
+        Map<String, Object> driver = assignAvailableDriver();
+        if (driver == null || driver.get("id") == null) {
             throw new IllegalStateException("No available drivers");
         }
 
         Long driverId = ((Number) driver.get("id")).longValue();
-        updateDriverStatus(driverId, "BUSY");
 
         Trip trip = new Trip();
         trip.setPassengerId(passengerId);
@@ -43,11 +42,25 @@ class TripService {
         trip.setOrigin(origin);
         trip.setDestination(destination);
         trip.setStatus(TripStatus.DRIVER_ASSIGNED);
-        trip.setPrice(java.math.BigDecimal.valueOf(100));
-        trip.setCreatedAt(LocalDateTime.now());
-        trip.setUpdatedAt(LocalDateTime.now());
+        trip.setPrice(BigDecimal.valueOf(100));
 
-        return tripRepository.save(trip);
+        Trip savedTrip = tripRepository.save(trip);
+
+        createNotification(
+                savedTrip.getId(),
+                "PASSENGER",
+                savedTrip.getPassengerId(),
+                "Trip created with status DRIVER_ASSIGNED"
+        );
+
+        createNotification(
+                savedTrip.getId(),
+                "DRIVER",
+                savedTrip.getDriverId(),
+                "You have been assigned to trip " + savedTrip.getId()
+        );
+
+        return savedTrip;
     }
 
     public Trip getTrip(Long id) {
@@ -72,8 +85,9 @@ class TripService {
             throw new IllegalArgumentException("Invalid trip status");
         }
 
+        validateStatusTransition(trip.getStatus(), newStatus);
+
         trip.setStatus(newStatus);
-        trip.setUpdatedAt(LocalDateTime.now());
 
         if (newStatus == TripStatus.ACCEPTED || newStatus == TripStatus.IN_PROGRESS) {
             if (trip.getDriverId() != null) {
@@ -81,13 +95,31 @@ class TripService {
             }
         }
 
-        if (newStatus == TripStatus.COMPLETED) {
+        if (newStatus == TripStatus.COMPLETED || newStatus == TripStatus.CANCELLED) {
             if (trip.getDriverId() != null) {
                 updateDriverStatus(trip.getDriverId(), "AVAILABLE");
             }
         }
 
-        return tripRepository.save(trip);
+        Trip savedTrip = tripRepository.save(trip);
+
+        createNotification(
+                savedTrip.getId(),
+                "PASSENGER",
+                savedTrip.getPassengerId(),
+                "Trip status changed to " + savedTrip.getStatus()
+        );
+
+        if (savedTrip.getDriverId() != null) {
+            createNotification(
+                    savedTrip.getId(),
+                    "DRIVER",
+                    savedTrip.getDriverId(),
+                    "Trip " + savedTrip.getId() + " status changed to " + savedTrip.getStatus()
+            );
+        }
+
+        return savedTrip;
     }
 
     private void verifyPassengerExists(Long passengerId) {
@@ -98,9 +130,13 @@ class TripService {
         }
     }
 
-    private Map<String, Object> findAndLockAvailableDriver() {
+    private Map<String, Object> assignAvailableDriver() {
         try {
-            return restTemplate.getForObject(USER_SERVICE_URL + "/drivers?status=AVAILABLE&lock=true", Map.class);
+            return restTemplate.postForObject(
+                    USER_SERVICE_URL + "/drivers/assign",
+                    null,
+                    Map.class
+            );
         } catch (Exception e) {
             return null;
         }
@@ -108,6 +144,36 @@ class TripService {
 
     private void updateDriverStatus(Long driverId, String status) {
         Map<String, String> body = Map.of("status", status);
-        restTemplate.patchForObject(USER_SERVICE_URL + "/drivers/" + driverId + "/status", body, Object.class);
+        restTemplate.patchForObject(
+                USER_SERVICE_URL + "/drivers/" + driverId + "/status",
+                body,
+                Object.class
+        );
+    }
+
+    private void createNotification(Long tripId, String recipientType, Long recipientId, String message) {
+        Map<String, Object> body = Map.of(
+                "tripId", tripId,
+                "recipientType", recipientType,
+                "recipientId", recipientId,
+                "message", message
+        );
+
+        restTemplate.postForObject(
+                NOTIFICATION_SERVICE_URL + "/notifications",
+                body,
+                Object.class
+        );
+    }
+
+    private void validateStatusTransition(TripStatus current, TripStatus next) {
+        boolean valid =
+                (current == TripStatus.DRIVER_ASSIGNED && (next == TripStatus.ACCEPTED || next == TripStatus.CANCELLED)) ||
+                        (current == TripStatus.ACCEPTED && (next == TripStatus.IN_PROGRESS || next == TripStatus.CANCELLED)) ||
+                        (current == TripStatus.IN_PROGRESS && next == TripStatus.COMPLETED);
+
+        if (!valid) {
+            throw new IllegalArgumentException("Invalid status transition: " + current + " -> " + next);
+        }
     }
 }
